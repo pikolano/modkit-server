@@ -2,16 +2,13 @@ from flask import Flask, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_cors import CORS
 import os
-import eventlet
-
-# Подключаем eventlet для работы в продакшн-режиме
-eventlet.monkey_patch()
 
 app = Flask(__name__)
 CORS(app)
 
 # Устанавливаем порт из переменной окружения или по умолчанию 5000
 port = int(os.environ.get("PORT", 5000))
+
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Счётчик зрителей
@@ -82,5 +79,5 @@ def update_admin():
     socketio.emit("update_stats", stats, room="admin")
 
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=port)
-
+    # Запускаем с allow_unsafe_werkzeug=True для работы в продакшн
+    socketio.run(app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)
