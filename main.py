@@ -6,6 +6,11 @@ import os
 app = Flask(__name__)
 CORS(app)
 
+# Добавляем маршрут по умолчанию
+@app.route("/")
+def index():
+    return "Я живой!"
+
 # Устанавливаем порт из переменной окружения или по умолчанию 5000
 port = int(os.environ.get("PORT", 5000))
 
@@ -81,3 +86,4 @@ def update_admin():
 if __name__ == "__main__":
     # Запускаем с allow_unsafe_werkzeug=True для работы в продакшн
     socketio.run(app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)
+
