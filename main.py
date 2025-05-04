@@ -16,11 +16,11 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 port = int(os.environ.get("PORT", 5000))
 
 # Инициализация SocketIO
-socketio = SocketIO(app, 
-                   cors_allowed_origins="*",
-                   logger=True,
-                   engineio_logger=True,
-                   async_mode='gevent')
+socketio = SocketIO(app,
+                    cors_allowed_origins="*",
+                    logger=True,
+                    engineio_logger=True,
+                    async_mode='gevent')
 
 # Хранилище данных
 class StreamData:
@@ -28,25 +28,24 @@ class StreamData:
         self.viewers = {f"oneevent{i}": set() for i in range(1, 9)}
         self.authorized_admins = set()
         self.chat_messages = {f"oneevent{i}": [] for i in range(1, 9)}
-        
+
     def add_viewer(self, channel, sid):
         if channel in self.viewers:
             self.viewers[channel].add(sid)
-            
+
     def remove_viewer(self, sid):
         for channel in self.viewers:
             if sid in self.viewers[channel]:
                 self.viewers[channel].remove(sid)
                 return channel
         return None
-    
+
     def get_viewers_count(self, channel):
         return len(self.viewers.get(channel, set()))
-    
+
     def add_chat_message(self, channel, username, message):
         if channel in self.chat_messages:
             self.chat_messages[channel].append((username, message))
-            # Ограничиваем историю чата 100 сообщениями
             if len(self.chat_messages[channel]) > 100:
                 self.chat_messages[channel] = self.chat_messages[channel][-100:]
 
@@ -61,7 +60,8 @@ def index():
 def get_stats():
     return {ch: data.get_viewers_count(ch) for ch in data.viewers}
 
-# SocketIO обработчики
+# ========== Socket.IO ==========
+
 @socketio.on("connect")
 def handle_connect():
     logger.info(f"Client connected: {request.sid}")
@@ -83,25 +83,22 @@ def handle_join(payload):
         if not channel or channel not in data.viewers:
             emit("error", {"message": "Invalid channel"})
             return
-            
+
         sid = request.sid
         data.add_viewer(channel, sid)
         join_room(channel)
-        
-        # Отправляем текущее количество зрителей
+
         emit("viewer_count", {
             "count": data.get_viewers_count(channel)
         }, room=channel)
-        
-        # Отправляем историю чата новому пользователю
+
         for username, message in data.chat_messages.get(channel, []):
             emit("chat_message", {
                 "username": username,
                 "message": message
             }, room=sid)
-            
-        logger.info(f"User {sid} joined channel {channel}")
 
+        logger.info(f"User {sid} joined channel {channel}")
     except Exception as e:
         logger.error(f"Join error: {str(e)}")
         emit("error", {"message": "Internal server error"})
@@ -127,24 +124,22 @@ def handle_chat_message(payload):
         channel = payload.get("channel")
         username = payload.get("username")
         message = payload.get("message")
-        
+
         if not all([channel, username, message]):
             emit("error", {"message": "Invalid message data"})
             return
-            
+
         if len(message) > 500:
             emit("error", {"message": "Message too long"})
             return
-            
-        # Сохраняем сообщение
+
         data.add_chat_message(channel, username, message)
-        
-        # Рассылаем всем в канале
+
         emit("chat_message", {
             "username": username,
             "message": message
         }, room=channel)
-        
+
     except Exception as e:
         logger.error(f"Chat error: {str(e)}")
         emit("error", {"message": "Internal server error"})
@@ -155,30 +150,29 @@ def handle_redirect(payload):
         if request.sid not in data.authorized_admins:
             emit("error", {"message": "Not authorized"})
             return
-            
+
         channel = payload.get("channel")
         url = payload.get("url")
-        
+
         if not all([channel, url]):
             emit("error", {"message": "Invalid redirect data"})
             return
-            
+
         if channel not in data.viewers:
             emit("error", {"message": "Invalid channel"})
             return
-            
-        # Перенаправляем всех зрителей
+
         emit("redirect", {"url": url}, room=channel)
         logger.info(f"Redirecting {channel} to {url}")
-        
+
     except Exception as e:
         logger.error(f"Redirect error: {str(e)}")
         emit("error", {"message": "Internal server error"})
 
 if __name__ == "__main__":
     logger.info(f"Starting server on port {port}")
-    socketio.run(app, 
-                 host="0.0.0.0", 
+    socketio.run(app,
+                 host="0.0.0.0",
                  port=port,
                  debug=False,
                  allow_unsafe_werkzeug=True,
