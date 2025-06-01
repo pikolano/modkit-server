@@ -2,6 +2,7 @@ from flask import Flask, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_cors import CORS
 import os
+import time
 
 app = Flask(__name__)
 CORS(app)
@@ -23,6 +24,16 @@ viewers = {f"oneevent{i}": set() for i in range(1, 9)}
 ADMIN_PASSWORD = "onemediamodkit123"
 authorized_admins = set()  # по sid
 
+# Хранилище рекламы и плашек
+ad_storage = {
+    'ad_playing': False,
+    'ad_url': None,
+    'banner_visible': False,
+    'banner_position': 'bottom-right',  # или 'center'
+    'banner_title': '',
+    'banner_text': ''
+}
+
 # Пользователь зашёл на канал
 @socketio.on("join")
 def handle_join(data):
@@ -30,6 +41,18 @@ def handle_join(data):
     room = data["channel"]
     viewers[room].add(sid)
     join_room(room)
+    
+    # Отправляем текущее состояние рекламы новому зрителю
+    if ad_storage['ad_playing']:
+        emit("play_ad", {"url": ad_storage['ad_url']}, room=sid)
+    
+    if ad_storage['banner_visible']:
+        emit("show_banner", {
+            "position": ad_storage['banner_position'],
+            "title": ad_storage['banner_title'],
+            "text": ad_storage['banner_text']
+        }, room=sid)
+    
     update_admin()
 
 # Отключился
@@ -78,9 +101,71 @@ def handle_redirect(data):
     socketio.emit("redirect", {"url": url}, room=channel)
     print(f"[↪] Перенаправление: {channel} → {url}")
 
+# Управление рекламой
+@socketio.on("control_ad")
+def handle_control_ad(data):
+    sid = request.sid
+    if sid not in authorized_admins:
+        emit("error", {"message": "Не авторизован"})
+        return
+    
+    action = data.get("action")
+    
+    if action == "play":
+        ad_storage['ad_playing'] = True
+        ad_storage['ad_url'] = data.get("url")
+        socketio.emit("play_ad", {"url": ad_storage['ad_url']}, skip_sid=sid)
+        print(f"[▶] Включена реклама: {ad_storage['ad_url']}")
+    
+    elif action == "stop":
+        ad_storage['ad_playing'] = False
+        socketio.emit("stop_ad", {}, skip_sid=sid)
+        print(f"[⏹] Реклама остановлена")
+    
+    update_admin()
+
+# Управление плашкой
+@socketio.on("control_banner")
+def handle_control_banner(data):
+    sid = request.sid
+    if sid not in authorized_admins:
+        emit("error", {"message": "Не авторизован"})
+        return
+    
+    action = data.get("action")
+    
+    if action == "show":
+        ad_storage['banner_visible'] = True
+        ad_storage['banner_position'] = data.get("position", "bottom-right")
+        ad_storage['banner_title'] = data.get("title", "")
+        ad_storage['banner_text'] = data.get("text", "")
+        
+        socketio.emit("show_banner", {
+            "position": ad_storage['banner_position'],
+            "title": ad_storage['banner_title'],
+            "text": ad_storage['banner_text']
+        }, skip_sid=sid)
+        
+        print(f"[ℹ] Показана плашка: {ad_storage['banner_title']}")
+    
+    elif action == "hide":
+        ad_storage['banner_visible'] = False
+        socketio.emit("hide_banner", {}, skip_sid=sid)
+        print(f"[✖] Плашка скрыта")
+    
+    update_admin()
+
 # Обновить админку
 def update_admin():
     stats = {ch: len(viewers[ch]) for ch in viewers}
+    stats.update({
+        'ad_playing': ad_storage['ad_playing'],
+        'ad_url': ad_storage['ad_url'],
+        'banner_visible': ad_storage['banner_visible'],
+        'banner_position': ad_storage['banner_position'],
+        'banner_title': ad_storage['banner_title'],
+        'banner_text': ad_storage['banner_text']
+    })
     socketio.emit("update_stats", stats, room="admin")
 
 if __name__ == "__main__":
