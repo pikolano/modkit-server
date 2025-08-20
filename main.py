@@ -10,7 +10,7 @@ CORS(app)
 # Добавляем маршрут по умолчанию
 @app.route("/")
 def index():
-    return "workin...."
+    return "pong!"
 
 # Устанавливаем порт из переменной окружения или по умолчанию 5000
 port = int(os.environ.get("PORT", 5000))
