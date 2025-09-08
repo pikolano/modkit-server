@@ -7,24 +7,24 @@ import time
 app = Flask(__name__)
 CORS(app)
 
-# Добавляем маршрут по умолчанию
+
 @app.route("/")
 def index():
     return "pong!!"
 
-# Устанавливаем порт из переменной окружения или по умолчанию 5000
+
 port = int(os.environ.get("PORT", 5000))
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Счётчик зрителей
+
 viewers = {f"oneevent{i}": set() for i in range(1, 9)}
 
-# Авторизация
+
 ADMIN_PASSWORD = "onemediamodkit123"
 authorized_admins = set()  # по sid
 
-# Хранилище рекламы и плашек
+
 ad_storage = {
     'ad_playing': False,
     'ad_url': None,
@@ -34,7 +34,7 @@ ad_storage = {
     'banner_text': ''
 }
 
-# Пользователь зашёл на канал
+
 @socketio.on("join")
 def handle_join(data):
     sid = request.sid
