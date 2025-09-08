@@ -42,7 +42,7 @@ def handle_join(data):
     viewers[room].add(sid)
     join_room(room)
     
-    # Отправляем текущее состояние рекламы новому зрителю
+
     if ad_storage['ad_playing']:
         emit("play_ad", {"url": ad_storage['ad_url']}, room=sid)
     
@@ -67,7 +67,7 @@ def handle_disconnect():
     authorized_admins.discard(sid)
     update_admin()
 
-# Авторизация админа
+
 @socketio.on("auth")
 def handle_auth(data):
     sid = request.sid
@@ -79,7 +79,7 @@ def handle_auth(data):
         emit("auth_result", {"success": False})
         print(f"[-] Неверный пароль от: {sid}")
 
-# Только авторизованные могут попасть в админку
+
 @socketio.on("admin_join")
 def handle_admin_join():
     sid = request.sid
@@ -89,7 +89,7 @@ def handle_admin_join():
     else:
         emit("error", {"message": "Не авторизован"})
 
-# Редирект — только если авторизован
+
 @socketio.on("redirect")
 def handle_redirect(data):
     sid = request.sid
@@ -101,7 +101,7 @@ def handle_redirect(data):
     socketio.emit("redirect", {"url": url}, room=channel)
     print(f"[↪] Перенаправление: {channel} → {url}")
 
-# Управление рекламой
+
 @socketio.on("control_ad")
 def handle_control_ad(data):
     sid = request.sid
@@ -124,7 +124,7 @@ def handle_control_ad(data):
     
     update_admin()
 
-# Управление плашкой
+
 @socketio.on("control_banner")
 def handle_control_banner(data):
     sid = request.sid
@@ -155,7 +155,7 @@ def handle_control_banner(data):
     
     update_admin()
 
-# Обновить админку
+
 def update_admin():
     stats = {ch: len(viewers[ch]) for ch in viewers}
     stats.update({
@@ -169,5 +169,4 @@ def update_admin():
     socketio.emit("update_stats", stats, room="admin")
 
 if __name__ == "__main__":
-    # Запускаем с allow_unsafe_werkzeug=True для работы в продакшн
     socketio.run(app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)
