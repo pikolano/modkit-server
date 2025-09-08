@@ -22,14 +22,14 @@ viewers = {f"oneevent{i}": set() for i in range(1, 9)}
 
 
 ADMIN_PASSWORD = "onemediamodkit123"
-authorized_admins = set()  # по sid
+authorized_admins = set()
 
 
 ad_storage = {
     'ad_playing': False,
     'ad_url': None,
     'banner_visible': False,
-    'banner_position': 'bottom-right',  # или 'center'
+    'banner_position': 'bottom-right',
     'banner_title': '',
     'banner_text': ''
 }
