@@ -170,3 +170,5 @@ def update_admin():
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)
+
+# все поламалось к хуям, но зато зрители и перенаправление работает
