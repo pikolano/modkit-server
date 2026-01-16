@@ -144,12 +144,16 @@ def handle_get_match_by_id(data):
         emit("error", {"message": "Не авторизован"})
         return
     
-    match_id = data.get("matchId")
-    slot_index = match_id - 1
-    
-    if 0 <= slot_index < len(matches) and matches[slot_index] is not None:
-        emit("match_data", matches[slot_index])
-    else:
+    try:
+        # Преобразуем matchId в целое число
+        match_id = int(data.get("matchId"))
+        slot_index = match_id - 1
+        
+        if 0 <= slot_index < len(matches) and matches[slot_index] is not None:
+            emit("match_data", matches[slot_index])
+        else:
+            emit("match_data", None)
+    except (ValueError, TypeError):
         emit("match_data", None)
 
 @socketio.on("add_match")
@@ -199,51 +203,57 @@ def handle_edit_match(data):
         emit("error", {"message": "Не авторизован"})
         return
     
-    match_id = data.get("id")
-    slot_index = match_id - 1
-    
-    if not (0 <= slot_index < len(matches) and matches[slot_index] is not None):
-        emit("match_updated", {"success": False, "error": "Матч не найден"})
-        return
-    
-    match = {
-        "id": match_id,
-        "team1": data.get("team1"),
-        "team2": data.get("team2"),
-        "team1Logo": data.get("team1Logo", ""),
-        "team2Logo": data.get("team2Logo", ""),
-        "league": data.get("league"),
-        "category": data.get("category", "other"),
-        "date": data.get("date"),
-        "time": data.get("time"),
-        "playerUrl": data.get("playerUrl"),
-        "description": data.get("description", ""),
-        "watchPage": f"miniapp_watch{match_id}.html"
-    }
-    
-    matches[slot_index] = match
-    emit("match_updated", {"success": True})
-    socketio.emit("matches_data", [m for m in matches if m], broadcast=True)
-    print(f"[✏️] Обновлен матч в слоте {match_id}: {match['team1']} - {match['team2']}")
+    try:
+        match_id = int(data.get("id"))
+        slot_index = match_id - 1
+        
+        if not (0 <= slot_index < len(matches) and matches[slot_index] is not None):
+            emit("match_updated", {"success": False, "error": "Матч не найден"})
+            return
+        
+        match = {
+            "id": match_id,
+            "team1": data.get("team1"),
+            "team2": data.get("team2"),
+            "team1Logo": data.get("team1Logo", ""),
+            "team2Logo": data.get("team2Logo", ""),
+            "league": data.get("league"),
+            "category": data.get("category", "other"),
+            "date": data.get("date"),
+            "time": data.get("time"),
+            "playerUrl": data.get("playerUrl"),
+            "description": data.get("description", ""),
+            "watchPage": f"miniapp_watch{match_id}.html"
+        }
+        
+        matches[slot_index] = match
+        emit("match_updated", {"success": True})
+        socketio.emit("matches_data", [m for m in matches if m], broadcast=True)
+        print(f"[✏️] Обновлен матч в слоте {match_id}: {match['team1']} - {match['team2']}")
+    except (ValueError, TypeError):
+        emit("match_updated", {"success": False, "error": "Неверный формат ID"})
 
 @socketio.on("delete_match")
 def handle_delete_match(data):
-    """Удаляет матч из слота, НЕ СДВИГАЯ остальные"""
+    """ок"""
     sid = request.sid
     if sid not in authorized_admins:
         emit("error", {"message": "Не авторизован"})
         return
     
-    match_id = data.get("matchId")
-    slot_index = match_id - 1
-    
-    if 0 <= slot_index < len(matches):
-        matches[slot_index] = None
-        emit("match_deleted", {"success": True})
-        socketio.emit("matches_data", [m for m in matches if m], broadcast=True)
-        print(f"[-] Удален матч из слота {match_id}")
-    else:
-        emit("match_deleted", {"success": False})
+    try:
+        match_id = int(data.get("matchId"))
+        slot_index = match_id - 1
+        
+        if 0 <= slot_index < len(matches):
+            matches[slot_index] = None
+            emit("match_deleted", {"success": True})
+            socketio.emit("matches_data", [m for m in matches if m], broadcast=True)
+            print(f"[-] Удален матч из слота {match_id}")
+        else:
+            emit("match_deleted", {"success": False})
+    except (ValueError, TypeError):
+        emit("match_deleted", {"success": False, "error": "Неверный формат ID"})
 
 @socketio.on("get_match_by_number")
 def handle_get_match_by_number(data):
