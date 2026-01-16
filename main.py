@@ -131,9 +131,26 @@ def handle_get_matches():
     for i, match in enumerate(matches):
         if match is not None:
             match_copy = match.copy()
+            match_copy["id"] = i + 1
             match_copy["watchPage"] = f"miniapp_watch{i+1}.html"
             active_matches.append(match_copy)
     emit("matches_data", active_matches)
+
+@socketio.on("get_match_by_id")
+def handle_get_match_by_id(data):
+    """Получить матч по ID"""
+    sid = request.sid
+    if sid not in authorized_admins:
+        emit("error", {"message": "Не авторизован"})
+        return
+    
+    match_id = data.get("matchId")
+    slot_index = match_id - 1
+    
+    if 0 <= slot_index < len(matches) and matches[slot_index] is not None:
+        emit("match_data", matches[slot_index])
+    else:
+        emit("match_data", None)
 
 @socketio.on("add_match")
 def handle_add_match(data):
@@ -155,7 +172,7 @@ def handle_add_match(data):
         return
     
     match = {
-        "id": slot_index + 1,  # ID = номер страницы
+        "id": slot_index + 1,
         "team1": data.get("team1"),
         "team2": data.get("team2"),
         "team1Logo": data.get("team1Logo", ""),
@@ -174,6 +191,41 @@ def handle_add_match(data):
     socketio.emit("matches_data", [m for m in matches if m], broadcast=True)
     print(f"[+] Добавлен матч в слот {slot_index + 1}: {match['team1']} - {match['team2']}")
 
+@socketio.on("edit_match")
+def handle_edit_match(data):
+    """Редактирует существующий матч"""
+    sid = request.sid
+    if sid not in authorized_admins:
+        emit("error", {"message": "Не авторизован"})
+        return
+    
+    match_id = data.get("id")
+    slot_index = match_id - 1
+    
+    if not (0 <= slot_index < len(matches) and matches[slot_index] is not None):
+        emit("match_updated", {"success": False, "error": "Матч не найден"})
+        return
+    
+    match = {
+        "id": match_id,
+        "team1": data.get("team1"),
+        "team2": data.get("team2"),
+        "team1Logo": data.get("team1Logo", ""),
+        "team2Logo": data.get("team2Logo", ""),
+        "league": data.get("league"),
+        "category": data.get("category", "other"),
+        "date": data.get("date"),
+        "time": data.get("time"),
+        "playerUrl": data.get("playerUrl"),
+        "description": data.get("description", ""),
+        "watchPage": f"miniapp_watch{match_id}.html"
+    }
+    
+    matches[slot_index] = match
+    emit("match_updated", {"success": True})
+    socketio.emit("matches_data", [m for m in matches if m], broadcast=True)
+    print(f"[✏️] Обновлен матч в слоте {match_id}: {match['team1']} - {match['team2']}")
+
 @socketio.on("delete_match")
 def handle_delete_match(data):
     """Удаляет матч из слота, НЕ СДВИГАЯ остальные"""
@@ -183,7 +235,7 @@ def handle_delete_match(data):
         return
     
     match_id = data.get("matchId")
-    slot_index = match_id - 1  # ID = номер страницы
+    slot_index = match_id - 1
     
     if 0 <= slot_index < len(matches):
         matches[slot_index] = None
