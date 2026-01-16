@@ -24,7 +24,8 @@ current_unique_ips = set()
 ip_to_sid = {}
 last_reset_date = datetime.now().date()
 
-matches = [None, None, None, None, None]  # 5 слотов для матчей
+# 12 слотов для матчей
+matches = [None] * 12
 
 ADMIN_PASSWORD = "onemediamodkit123"
 authorized_admins = set()
@@ -172,7 +173,7 @@ def handle_add_match(data):
             break
     
     if slot_index is None:
-        emit("match_added", {"success": False, "error": "Все слоты заняты (максимум 5 матчей)"})
+        emit("match_added", {"success": False, "error": f"Все слоты заняты (максимум {len(matches)} матчей)"})
         return
     
     match = {
@@ -235,7 +236,7 @@ def handle_edit_match(data):
 
 @socketio.on("delete_match")
 def handle_delete_match(data):
-    """ок"""
+    """не сенграв"""
     sid = request.sid
     if sid not in authorized_admins:
         emit("error", {"message": "Не авторизован"})
