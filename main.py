@@ -2,8 +2,7 @@ from flask import Flask, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_cors import CORS
 import os
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -15,28 +14,24 @@ def index():
 port = int(os.environ.get("PORT", 5000))
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-viewers = {f"oneevent{i}": set() for i in range(1, 11)} 
-viewers["one"] = set() 
+# Каналы и зрители
+viewers = {f"oneevent{i}": set() for i in range(1, 11)}
+viewers["one"] = set()
 
-daily_unique_ips = set() 
-current_unique_ips = set() 
-ip_to_sid = {}  
+# Отслеживание уникальных IP
+daily_unique_ips = set()
+current_unique_ips = set()
+ip_to_sid = {}
 last_reset_date = datetime.now().date()
 
-matches = []
-match_id_counter = 1
-
-matches = []
-match_id_counter = 1
+matches = [None, None, None, None, None]  # 5 слотов для матчей
 
 ADMIN_PASSWORD = "onemediamodkit123"
 authorized_admins = set()
 
 def reset_daily_stats_if_needed():
-    """Сбрасывает статистику за день в полночь"""
     global daily_unique_ips, last_reset_date
     current_date = datetime.now().date()
-    
     if current_date > last_reset_date:
         print(f"[!] Новый день! Сброс дневной статистики")
         daily_unique_ips.clear()
@@ -46,7 +41,6 @@ def reset_daily_stats_if_needed():
 def handle_join(data):
     sid = request.sid
     room = data["channel"]
-    
     ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR', 'unknown'))
     if ',' in ip:
         ip = ip.split(',')[0].strip()
@@ -68,7 +62,6 @@ def handle_join(data):
 @socketio.on("disconnect")
 def handle_disconnect():
     sid = request.sid
-    
     ip_to_remove = None
     for ip, sids in ip_to_sid.items():
         if sid in sids:
@@ -117,124 +110,52 @@ def handle_redirect(data):
     if sid not in authorized_admins:
         emit("error", {"message": "Не авторизован"})
         return
-    
     channel = data["channel"]
     url = data["url"]
     socketio.emit("redirect", {"url": url}, room=channel)
     print(f"[↪] Перенаправление: {channel} → {url}")
 
-@socketio.on("get_matches")
-def handle_get_matches():
-    """Получить список всех матчей"""
-    emit("matches_list", {"matches": matches})
-
-@socketio.on("add_match")
-def handle_add_match(data):
-    """Добавить новый матч"""
-    global match_id_counter
-    sid = request.sid
-    
-    if sid not in authorized_admins:
-        emit("error", {"message": "Не авторизован"})
-        return
-    
-    match = {
-        "id": match_id_counter,
-        "sport": data.get("sport", "Футбол"),
-        "league": data.get("league", ""),
-        "team1_name": data.get("team1_name", ""),
-        "team1_logo": data.get("team1_logo", ""),
-        "team2_name": data.get("team2_name", ""),
-        "team2_logo": data.get("team2_logo", ""),
-        "datetime": data.get("datetime", ""),
-        "player_url": data.get("player_url", ""),
-        "description": data.get("description", "")
-    }
-    
-    matches.append(match)
-    match_id_counter += 1
-    
-    print(f"[+] Добавлен матч: {match['team1_name']} vs {match['team2_name']}")
-    
-    socketio.emit("matches_list", {"matches": matches}, room="admin")
-    socketio.emit("matches_update", {"matches": matches})
-
-@socketio.on("delete_match")
-def handle_delete_match(data):
-    """Удалить матч"""
-    global matches
-    sid = request.sid
-    
-    if sid not in authorized_admins:
-        emit("error", {"message": "Не авторизован"})
-        return
-    
-    match_id = data.get("match_id")
-    matches = [m for m in matches if m["id"] != match_id]
-    
-    print(f"[-] Удален матч ID: {match_id}")
-    
-    socketio.emit("matches_list", {"matches": matches}, room="admin")
-    socketio.emit("matches_update", {"matches": matches})
-
-@socketio.on("edit_match")
-def handle_edit_match(data):
-    """Редактировать матч"""
-    global matches
-    sid = request.sid
-    
-    if sid not in authorized_admins:
-        emit("error", {"message": "Не авторизован"})
-        return
-    
-    match_id = data.get("match_id")
-    
-    for match in matches:
-        if match["id"] == match_id:
-            match["sport"] = data.get("sport", match["sport"])
-            match["league"] = data.get("league", match["league"])
-            match["team1_name"] = data.get("team1_name", match["team1_name"])
-            match["team1_logo"] = data.get("team1_logo", match["team1_logo"])
-            match["team2_name"] = data.get("team2_name", match["team2_name"])
-            match["team2_logo"] = data.get("team2_logo", match["team2_logo"])
-            match["datetime"] = data.get("datetime", match["datetime"])
-            match["player_url"] = data.get("player_url", match["player_url"])
-            match["description"] = data.get("description", match["description"])
-            
-            print(f"[✎] Изменен матч ID: {match_id}")
-            break
-    
-    socketio.emit("matches_list", {"matches": matches}, room="admin")
-    socketio.emit("matches_update", {"matches": matches})
-
 def update_admin():
-    """Отправляет статистику админам"""
     reset_daily_stats_if_needed()
-    
     stats = {ch: len(viewers[ch]) for ch in viewers}
-    
     stats["daily_unique"] = len(daily_unique_ips)
     stats["current_unique"] = len(current_unique_ips)
-    
     socketio.emit("update_stats", stats, room="admin")
+
+# ============ MINI APP HANDLERS ============
 
 @socketio.on("get_matches")
 def handle_get_matches():
     """Отправляет список всех матчей"""
-    emit("matches_data", matches)
+    active_matches = []
+    for i, match in enumerate(matches):
+        if match is not None:
+            match_copy = match.copy()
+            match_copy["watchPage"] = f"miniapp_watch{i+1}.html"
+            active_matches.append(match_copy)
+    emit("matches_data", active_matches)
 
 @socketio.on("add_match")
 def handle_add_match(data):
-    """Добавляет новый матч"""
-    global match_id_counter
+    """Добавляет новый матч в первый свободный слот"""
     sid = request.sid
-    
     if sid not in authorized_admins:
         emit("error", {"message": "Не авторизован"})
         return
     
+    # Ищем первый пустой слот
+    slot_index = None
+    for i in range(len(matches)):
+        if matches[i] is None:
+            slot_index = i
+            break
+    
+    if slot_index is None:
+        emit("match_added", {"success": False, "error": "Все слоты заняты (максимум 5 матчей)"})
+        return
+    
     match = {
-        "id": match_id_counter,
+        "id": slot_index + 1,  # ID = номер страницы
         "team1": data.get("team1"),
         "team2": data.get("team2"),
         "team1Logo": data.get("team1Logo", ""),
@@ -245,41 +166,43 @@ def handle_add_match(data):
         "time": data.get("time"),
         "playerUrl": data.get("playerUrl"),
         "description": data.get("description", ""),
-        "watchPage": f"miniapp_watch{match_id_counter}.html"
+        "watchPage": f"miniapp_watch{slot_index + 1}.html"
     }
     
-    matches.append(match)
-    match_id_counter += 1
-    
+    matches[slot_index] = match
     emit("match_added", {"success": True})
-    socketio.emit("matches_data", matches, broadcast=True)
-    
-    print(f"[+] Добавлен матч: {match['team1']} - {match['team2']}")
+    socketio.emit("matches_data", [m for m in matches if m], broadcast=True)
+    print(f"[+] Добавлен матч в слот {slot_index + 1}: {match['team1']} - {match['team2']}")
 
 @socketio.on("delete_match")
 def handle_delete_match(data):
-    """Удаляет матч"""
+    """Удаляет матч из слота, НЕ СДВИГАЯ остальные"""
     sid = request.sid
-    
     if sid not in authorized_admins:
         emit("error", {"message": "Не авторизован"})
         return
     
     match_id = data.get("matchId")
-    global matches
-    matches = [m for m in matches if m["id"] != match_id]
+    slot_index = match_id - 1  # ID = номер страницы
     
-    emit("match_deleted", {"success": True})
-    socketio.emit("matches_data", matches, broadcast=True)
-    
-    print(f"[-] Удален матч ID: {match_id}")
+    if 0 <= slot_index < len(matches):
+        matches[slot_index] = None
+        emit("match_deleted", {"success": True})
+        socketio.emit("matches_data", [m for m in matches if m], broadcast=True)
+        print(f"[-] Удален матч из слота {match_id}")
+    else:
+        emit("match_deleted", {"success": False})
 
-@socketio.on("get_match_details")
-def handle_get_match_details(data):
-    """Отправляет детали конкретного матча"""
-    match_id = int(data.get("matchId", 1))
-    match = next((m for m in matches if m["id"] == match_id), None)
-    emit("match_details", match)
+@socketio.on("get_match_by_number")
+def handle_get_match_by_number(data):
+    """Получить матч по номеру страницы"""
+    match_number = data.get("matchNumber", 1)
+    slot_index = match_number - 1
+    
+    if 0 <= slot_index < len(matches) and matches[slot_index] is not None:
+        emit("match_data_by_number", matches[slot_index])
+    else:
+        emit("match_data_by_number", None)
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)
