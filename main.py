@@ -15,11 +15,14 @@ def index():
 port = int(os.environ.get("PORT", 5000))
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# Каналы и зрители
 viewers = {f"oneevent{i}": set() for i in range(1, 11)} 
+viewers["one"] = set() 
 
+# Отслеживание уникальных IP
 daily_unique_ips = set() 
-current_unique_ips = set() 
-ip_to_sid = {} 
+current_unique_ips = set()  
+ip_to_sid = {}  
 last_reset_date = datetime.now().date() 
 
 ADMIN_PASSWORD = "onemediamodkit123"
@@ -47,6 +50,7 @@ def handle_join(data):
     viewers[room].add(sid)
     join_room(room)
     
+    # Отслеживаем уникальные IP
     reset_daily_stats_if_needed()
     daily_unique_ips.add(ip)
     current_unique_ips.add(ip)
