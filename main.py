@@ -34,7 +34,7 @@ def reset_daily_stats_if_needed():
     current_date = datetime.now().date()
     
     if current_date > last_reset_date:
-        print(f"[!] Новый день! Сброс дневной статистики")
+        print(f"[!] Сброс статистики")
         daily_unique_ips.clear()
         last_reset_date = current_date
 
