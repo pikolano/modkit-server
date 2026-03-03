@@ -14,18 +14,15 @@ def index():
 port = int(os.environ.get("PORT", 5000))
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Каналы и зрители
-viewers = {f"oneevent{i}": set() for i in range(1, 11)}
+viewers = {f"oneevent{i}": set() for i in range(1, 31)}
 viewers["one"] = set()
 
-# Отслеживание уникальных IP
 daily_unique_ips = set()
 current_unique_ips = set()
 ip_to_sid = {}
 last_reset_date = datetime.now().date()
 
-# 12 слотов для матчей
-matches = [None] * 12
+matches = [None] * 30
 
 ADMIN_PASSWORD = "onemediamodkit123"
 authorized_admins = set()
@@ -146,7 +143,6 @@ def handle_get_match_by_id(data):
         return
     
     try:
-        # Преобразуем matchId в целое число
         match_id = int(data.get("matchId"))
         slot_index = match_id - 1
         
@@ -165,7 +161,6 @@ def handle_add_match(data):
         emit("error", {"message": "Не авторизован"})
         return
     
-    # Ищем первый пустой слот
     slot_index = None
     for i in range(len(matches)):
         if matches[i] is None:
