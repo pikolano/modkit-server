@@ -14,7 +14,7 @@ def index():
 port = int(os.environ.get("PORT", 5000))
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-viewers = {f"oneevent{i}": set() for i in range(1, 31)}
+viewers = {f"oneevent{i}": set() for i in range(1, 41)}
 viewers["one"] = set()
 
 daily_unique_ips = set()
@@ -22,7 +22,7 @@ current_unique_ips = set()
 ip_to_sid = {}
 last_reset_date = datetime.now().date()
 
-matches = [None] * 30
+matches = [None] * 40
 
 ADMIN_PASSWORD = "onemediamodkit123"
 authorized_admins = set()
